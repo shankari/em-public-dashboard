@@ -2,7 +2,7 @@ name: docker-image-push-public-dash
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, '**__image_build_**' ]
     
   workflow_dispatch:
     inputs:
@@ -23,6 +23,12 @@ jobs:
       
     steps:
     - uses: actions/checkout@v4
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: Set docker image tag from .env file
       run: |
@@ -57,9 +63,13 @@ jobs:
     - name: build docker image
       run: |
         if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-          SERVER_IMAGE_TAG=$DOCKER_TAG_FROM_WORKFLOW_DISPATCH docker compose -f docker-compose.yml build
+          SERVER_IMAGE_TAG=$DOCKER_TAG_FROM_WORKFLOW_DISPATCH docker buildx bake \
+            --set dashboard.platform=linux/amd64,linux/arm64 \
+            --set notebook-server.platform=linux/amd64,linux/arm64
         else
-          SERVER_IMAGE_TAG=$DOCKER_TAG_FROM_PUSH docker compose -f docker-compose.yml build
+          SERVER_IMAGE_TAG=$DOCKER_TAG_FROM_PUSH docker buildx bake \
+            --set dashboard.platform=linux/amd64,linux/arm64 \
+            --set notebook-server.platform=linux/amd64,linux/arm64
         fi
         docker images
 
